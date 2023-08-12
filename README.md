@@ -10,7 +10,7 @@ TeslaBox can also run [TeslaMate.](https://github.com/adriankumpf/teslamate)
 <img src="https://cdn.teslarpi.com/assets/img/teslabox.gif" width="150">
 
 ## Prerequisites
-- Raspberry Pi 4 with at least 4GB ram, at least 64GB of storage and a card reader (<a href="https://s.click.aliexpress.com/e/_DDzWCi3">Like this kit</a>)
+- Raspberry Pi 4 with at least 4GB ram, at least 64GB of storage and a card reader (<a href="https://s.click.aliexpress.com/e/_DeKPRyj">Like these kits</a>)
 - Compatible case with fan (<a href="https://s.click.aliexpress.com/e/_DlGTHll">Like this.</a> Note Argon cases are *not* recommended)
 - Some form of WiFi access, preferably in-car (<a href="https://s.click.aliexpress.com/e/_DlY0zpN">Like this 4G USB dongle</a>)
 - Extra short, all males <a href="https://s.click.aliexpress.com/e/_DCAMi91">USB-A to USB-C</a> or <a href="https://s.click.aliexpress.com/e/_DBMVYjN">USB-C to USB-C</a> cable
