@@ -1,82 +1,86 @@
 # TeslaBox
 Lite, open-source version of [teslarpi.com](https://www.teslarpi.com).
 
-A cinematic sentry mode (edits clips based on movement), see [here](https://twitter.com/mluggy/status/1628439817460584454) and [here.](https://twitter.com/mluggy/status/1627949202100690945) Also a live-view while you drive and an instant notification/archiving system!
+1. Instant notification, along with a video clip, for each dashcam/sentry event
+2. Unmetered live-stream while in park or driving
+3. Backup all events and streams to S3
 
-The system alerts you immediately of each sentry/dashcam event (along with a copy of the clip), compresses and uploads to S3.
+New: Cinematic sentry mode, see [here](https://twitter.com/mluggy/status/1628439817460584454) and [here.](https://twitter.com/mluggy/status/1627949202100690945)
 
-TeslaBox can also run [TeslaMate.](https://github.com/adriankumpf/teslamate)
+New: TeslaBox can also run [TeslaMate.](https://github.com/adriankumpf/teslamate)
 
 <img src="https://cdn.teslarpi.com/assets/img/teslabox.gif" width="150">
 
-## Prerequisites
-- Raspberry Pi 4 with at least 4GB ram, at least 64GB of storage and a card reader (<a href="https://s.click.aliexpress.com/e/_DeKPRyj">Like these kits</a>)
-- Compatible case with fan (<a href="https://s.click.aliexpress.com/e/_DlGTHll">Like this.</a> Note Argon cases are *not* recommended)
-- Some form of WiFi access, preferably in-car (<a href="https://s.click.aliexpress.com/e/_DlY0zpN">Like this 4G USB dongle</a>)
-- Extra short, all males <a href="https://s.click.aliexpress.com/e/_DCAMi91">USB-A to USB-C</a> or <a href="https://s.click.aliexpress.com/e/_DBMVYjN">USB-C to USB-C</a> cable
+## Hardware requirments (support the project by buying from these links)
+- Raspberry Pi 4 with at least 4GB ram, at least 64GB of storage and a card reader (<a href="https://s.click.aliexpress.com/e/_DeKPRyj" target="_blank">Like these kits</a>)
+- Compatible case with fan (<a href="https://s.click.aliexpress.com/e/_DlGTHll" target="_blank">Like this.</a> Note Argon cases are *not* recommended)
+- Some form of WiFi access, preferably in-car (<a href="https://s.click.aliexpress.com/e/_DlY0zpN" target="_blank">Like this 4G USB dongle</a>)
+- Extra short, all males <a href="https://s.click.aliexpress.com/e/_DCAMi91" target="_blank">USB-A to USB-C</a> if you want to connect inside the glovebox or <a href="https://s.click.aliexpress.com/e/_DBMVYjN">USB-C to USB-C</a> cable if you can and want to connect inside the center console
 
 ## Optionally:
-- [AWS account](https://aws.amazon.com/)
-- [Tailscale account](https://tailscale.com/)
-- [Telegram account](https://telegram.org/)
+- <a href="https://aws.amazon.com/" target="_blank">AWS account</a>
+- <a href="https://tailscale.com/" target="_blank">Tailscale account</a>
+- <a href="https://telegram.org/" target="_blank">Telegram account</a>
 
-## Installation
+## Software installation
 
-### AWS (required for archiving)
-1. Sign into your AWS account
-2. Create a new S3 bucket:
+### Amazon Web Services (required for archiving)
+1. <a href="https://aws.amazon.com/" target="_blank">Create an account or sign in to AWS</a>
+2. <a href="https://s3.console.aws.amazon.com/s3/buckets" target="_blank">Create a new S3 bucket:</a>
    - Bucket name: however you'd like (must be globally unique)
    - AWS region: either us-east-1 or the one closest to you
-   - ACL Disabled
+   - ACLs Disabled
    - Block *all* public access
    - Bucket versioning: Disable
-   - Default encryption: Disable
+   - Default encryption: Server-side encryption with Amazon S3 managed keys (SSE-S3) and Buckey Key: Enable
    - Click "Create Bucket"
-3. Add a new IAM user:
-   - User name: whatever you'd like (i.e teslabox)
-   - Select AWS credential type: Access key: - Programmatic access
-   - Click "Next: Permissions"
-   - Under "Attach existing policies directly" click "Create Policy"
+3. <a href="https://us-east-1.console.aws.amazon.com/iamv2/home#/policies/create" target="_blank">Create a new policy:</a>
    - Service: S3
-   - Actions: GetObject and PutObject
-   - Resource: Add ARN to restrict access
-   - Enter your Bucket name from 2.1 and tick "any" on Object name
-   - Click "Add"
-   - Click "Next: Tags"
-   - Click "Next: Review"
-   - Name: "teslabox"
-   - Click "Create Policy"
-   - Back on the IAM user page, refresh the list of policies and check "teslabox"
-   - Click "Next: Tags"
-   - Click "Next: Review"
-   - Click "Create User"
-   - Copy both the Access key ID and Secret access key
-4. If you want to be notified by email:
-   - Edit the policy you just created
-   - Click "Add additional permissions"
+   - Actions allowed: GetObject and PutObject
+   - Resources: Add ARN to restrict access
+   - Enter your Bucket name from 2.1 and check "Any object name"
+   - Click "Add ARNs"
+   - Click "Next"
+   - Policy name: "teslabox"
+   - Click "Create policy"
+4. <a href="https://us-east-1.console.aws.amazon.com/iamv2/home#/users/create" target="_blank">Add a new user:</a>
+   - User name: "teslabox"
+   - Do NOT select "Provide user access to the AWS Managment Console - optional"
+   - Click "Next"
+   - Select "Attach policies directly"
+   - Find "teslabox" in the list of Permissions policies and check it
+   - Click "Next"
+   - Click "Create user"
+   - Click on "teslabox" and under "Access keys" click "Create access key"
+   - Select "Applicaiton running outside AWS" and click "Next" then click "Create access key"
+   - Copy both the Access key and Secret access key
+5. If you want to be notified by email:
+   - <a href="https://us-east-1.console.aws.amazon.com/iamv2/home#/policies" taget="_blank">Click the "teslabox" policy</a>
+   - Under "Permissions" click "Edit", then click "Visual"
+   - Click "Add more permissions"
    - Service: SES v2
-   - Actions: SendEmail
-   - Identity: Any in this account
-   - Click "Review Policy" and "Save Changes"
-   - Under SES > Verified identities click "Create Identity"
+   - Actions allowed: SendEmail
+   - Under "identity" check "Any in this account"
+   - Click "Next" and "Save changes"
+   - <a href="https://console.aws.amazon.com/ses/home?#/verified-identities" target="_blank">Under SES > Verified identities</a> click "Create identity"
    - Choose either Domain or Email address with the address(es) you want to notify
    - Verify the identity as per the instructions
 
 ### Tailscale (required for remote access)
-1. Sign up for a free account
-2. Add the device(s) you wish to connect from
-3. Under DNS > Enable MagicDNS
+1. <a href="https://tailscale.com/" target="_blank">Create a free account or sign in to TailScale</a>
+2. Add the device(s) you wish to connect from (usually your Desktop, Laptop and/or your Phone)
+3. <a href="https://login.tailscale.com/admin/dns" target="_blank">Under DNS</a> Enable MagicDNS
 
 ### Telegram (required for notifications)
 1. Sign into your Telegram account
-2. Search and contact [@Botfather](https://telegram.me/BotFather) user
+2. Search and contact <a href="https://telegram.me/BotFather" target="_blank">@Botfather</a> user
 3. Enter /newbot and follow the wizard to create a new bot and retrieve your secret HTTP API token
 4. Contact the new bot you just created and click "Start"
-5. Search and contact [@getmyid_bot](https://telegram.me/getmyid_bot) user
+5. Search and contact <a href="https://telegram.me/getmyid_bot" target="_blank">@getmyid_bot</a> user
 6. Enter anything to retrieve your Chat ID
 
 ### Raspberry Pi
-1. Download and run [Raspberry Pi Imager](https://www.raspberrypi.com/software/)
+1. Download and run <a href="https://www.raspberrypi.com/software/" target="_blank">Raspberry Pi Imager</a>
 2. Under Operating System, choose Raspberry Pi OS *Lite* (64-bit)
 3. Under Storage, choose the SD card you wish to format
 4. Under settings:
@@ -142,9 +146,9 @@ TeslaBox can also run [TeslaMate.](https://github.com/adriankumpf/teslamate)
    echo "/usb.bin /mnt/usb vfat auto,noexec,nouser,ro,sync 0 0" >> /etc/fstab
    echo "options g_mass_storage file=/usb.bin removable=1 ro=0 stall=0 iSerialNumber=123456" > /etc/modprobe.d/g_mass_storage.conf
    ```
-12. Allocate RAM drive with 80% of available memory:
+12. Allocate RAM drive with 50% of available memory:
    ```
-   echo "tmpfs /mnt/ram tmpfs nodev,nosuid,size=80% 0 0" >> /etc/fstab
+   echo "tmpfs /mnt/ram tmpfs nodev,nosuid,size=50% 0 0" >> /etc/fstab
    ```
 13. Update system packages, upgrade and install required software:
    ```
@@ -189,14 +193,14 @@ TeslaBox can also run [TeslaMate.](https://github.com/adriankumpf/teslamate)
   [Service]
   Environment="NODE_ENV=production"
 
-  # To enable archive and/or email, enter these
-  Environment="AWS_ACCESS_KEY_ID="
-  Environment="AWS_SECRET_ACCESS_KEY="
-  Environment="AWS_DEFAULT_REGION="
-  Environment="AWS_S3_BUCKET="
+  # To enable archive and/or email, enter these, replacing *** with the actual values (i.e Environment="AWS_DEFAULT_REGION=us-east-1")
+  Environment="AWS_ACCESS_KEY_ID=***"
+  Environment="AWS_SECRET_ACCESS_KEY=***"
+  Environment="AWS_DEFAULT_REGION=***"
+  Environment="AWS_S3_BUCKET=***"
 
   # To enable telegram notification, enter this
-  Environment="TELEGRAM_ACCESS_TOKEN="
+  Environment="TELEGRAM_ACCESS_TOKEN=***"
 
   # If your run other projects, like Tesla Android, change the port number to avoid conflict
   Environment="ADMIN_PORT=80"
