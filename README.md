@@ -11,16 +11,11 @@ New: TeslaBox can also run [TeslaMate.](https://github.com/adriankumpf/teslamate
 
 <img src="https://cdn.teslarpi.com/assets/img/teslabox.gif" width="150">
 
-## Hardware requirments (support the project by buying from these links)
+## Hardware requirments
 - Raspberry Pi 4 with at least 4GB ram, at least 64GB of storage and a card reader (<a href="https://s.click.aliexpress.com/e/_DeKPRyj" target="_blank">Like these kits</a>)
 - Compatible case with fan (<a href="https://s.click.aliexpress.com/e/_DlGTHll" target="_blank">Like this.</a> Note Argon cases are *not* recommended)
 - Some form of WiFi access, preferably in-car (<a href="https://s.click.aliexpress.com/e/_DlY0zpN" target="_blank">Like this 4G USB dongle</a>)
 - Extra short, all males <a href="https://s.click.aliexpress.com/e/_DCAMi91" target="_blank">USB-A to USB-C</a> if you want to connect inside the glovebox or <a href="https://s.click.aliexpress.com/e/_DBMVYjN">USB-C to USB-C</a> cable if you can and want to connect inside the center console
-
-## Optionally:
-- <a href="https://aws.amazon.com/" target="_blank">AWS account</a>
-- <a href="https://tailscale.com/" target="_blank">Tailscale account</a>
-- <a href="https://telegram.org/" target="_blank">Telegram account</a>
 
 ## Software installation
 
