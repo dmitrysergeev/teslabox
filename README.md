@@ -141,9 +141,9 @@ New: TeslaBox can also run [TeslaMate.](https://github.com/adriankumpf/teslamate
    echo "/usb.bin /mnt/usb vfat auto,noexec,nouser,ro,sync 0 0" >> /etc/fstab
    echo "options g_mass_storage file=/usb.bin removable=1 ro=0 stall=0 iSerialNumber=123456" > /etc/modprobe.d/g_mass_storage.conf
    ```
-12. Allocate RAM drive with 50% of available memory:
+12. Allocate RAM drive with 80% of available memory:
    ```
-   echo "tmpfs /mnt/ram tmpfs nodev,nosuid,size=50% 0 0" >> /etc/fstab
+   echo "tmpfs /mnt/ram tmpfs nodev,nosuid,size=80% 0 0" >> /etc/fstab
    ```
 13. Update system packages, upgrade and install required software:
    ```
