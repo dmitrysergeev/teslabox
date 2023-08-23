@@ -135,6 +135,7 @@ New: TeslaBox can also run [TeslaMate.](https://github.com/adriankumpf/teslamate
   ```
 11. Allocate USB space with all available storage (minus 10GB, or more if you plan on using TeslaMate):
    ```
+   mkdir -p /mnt/usb
    size="$(($(df -B1G --output=avail / | tail -1) - 10))"
    fallocate -l "$size"G /usb.bin
    mkdosfs /usb.bin -F 32 -I
