@@ -21,7 +21,7 @@ exports.start = (cb) => {
   }
 
   // JCH - If endpoint does not exist is AWS else is a Compatible S3 Bucket
-  if (typeof settings.endpoint === null || settings.endpoint.length === 0){
+  if (!settings.endpoint){
     //This is for AWS S3 bucket
     client = new AWS.S3({
       credentials: {
@@ -33,6 +33,7 @@ exports.start = (cb) => {
   }
   else {
     //This is for compatible S3 bucket
+    log.info(`[custom/s3] client will use a S3 compatible cloud provider...`)
     client = new AWS.S3({
       accessKeyId: settings.accessKeyId,
       secretAccessKey: settings.secretAccessKey,
