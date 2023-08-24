@@ -180,7 +180,8 @@ New: TeslaBox can also run [TeslaMate.](https://github.com/adriankumpf/teslamate
   ```
   nano /lib/systemd/system/teslabox.service
   ```
-  - Paste this, with each Environment variable appended with its =value (if needed):
+  - Paste this, with each Environment variable appended with its =value (if needed)
+  - If you are planning to use a bucket from another compatible S3 Cloud Service or your own bucket (ex. Minio), uncomment the S3_ENDPOINT environment variable and fill it up with the corresponding endpoint URL
   ```
   [Unit]
   Description=TeslaBox
@@ -194,6 +195,7 @@ New: TeslaBox can also run [TeslaMate.](https://github.com/adriankumpf/teslamate
   Environment="AWS_SECRET_ACCESS_KEY=***"
   Environment="AWS_DEFAULT_REGION=***"
   Environment="AWS_S3_BUCKET=***"
+  #Environment="S3_ENDPOINT=***"
 
   # To enable telegram notification, enter this
   Environment="TELEGRAM_ACCESS_TOKEN=***"
