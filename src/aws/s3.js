@@ -20,7 +20,7 @@ exports.start = (cb) => {
     return cb()
   }
 
-  // JCH - If endpoint does not exist is AWS else is a Compatible S3 Bucket
+  // JCH - If endpoint does not exist (in environmet variable) is AWS else is a Compatible S3 Bucket
   if (!settings.endpoint){
     //This is for AWS S3 bucket
     client = new AWS.S3({
