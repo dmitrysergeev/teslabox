@@ -148,7 +148,7 @@ New: TeslaBox can also run [TeslaMate.](https://github.com/adriankumpf/teslamate
    ```
 13. Update system packages, upgrade and install required software:
    ```
-   curl -fsSL https://deb.nodesource.com/setup_14.x | sudo -E bash -
+   curl -fsSL https://deb.nodesource.com/setup_16.x | sudo -E bash -
    apt update && apt upgrade -y
    apt install -y nodejs ffmpeg
    sed -i 's/exit 0//g' /etc/rc.local
@@ -189,6 +189,7 @@ New: TeslaBox can also run [TeslaMate.](https://github.com/adriankumpf/teslamate
 
   [Service]
   Environment="NODE_ENV=production"
+  Environment="AWS_SDK_JS_SUPPRESS_MAINTENANCE_MODE_MESSAGE=1"
 
   # To enable archive and/or email, enter these, replacing *** with the actual values (i.e Environment="AWS_DEFAULT_REGION=us-east-1")
   # Uncomment Environment="S3_ENDPOINT=***" if you use other compatible bucket (ex. https://minio.mydomain.com or https://s3.eu-west-2.wasabisys.com)
