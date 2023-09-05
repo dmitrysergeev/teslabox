@@ -57,9 +57,10 @@ New: TeslaBox can also run [TeslaMate.](https://github.com/adriankumpf/teslamate
    - Actions allowed: SendEmail
    - Under "identity" check "Any in this account"
    - Click "Next" and "Save changes"
-   - <a href="https://console.aws.amazon.com/ses/home?#/verified-identities" target="_blank">Under SES > Verified identities</a> click "Create identity"
+   - <a href="https://console.aws.amazon.com/ses/home?#/verified-identities" target="_blank">Under SES > Verified identities</a> click "Create identity. Make sure you are in the same region as the S3 bucket
    - Choose either Domain or Email address with the address(es) you want to notify
    - Verify the identity as per the instructions
+   - Note, you can only notify by email address(es) you have verified
 
 ### Tailscale (required for remote access)
 1. <a href="https://tailscale.com/" target="_blank">Create a free account or sign in to TailScale</a>
