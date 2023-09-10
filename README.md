@@ -1,5 +1,5 @@
 # TeslaBox
-Lite, open-source version of [teslarpi.com](https://www.teslarpi.com).
+Open-source version of [teslarpi.com](https://www.teslarpi.com).
 
 1. Instant notification, along with a video clip, for each dashcam/sentry event
 2. Unmetered live-stream while in park or driving
@@ -9,7 +9,9 @@ New: Cinematic sentry mode, see [here](https://twitter.com/mluggy/status/1628439
 
 New: TeslaBox can also run [TeslaMate.](https://github.com/adriankumpf/teslamate)
 
-<img src="https://cdn.teslarpi.com/assets/img/teslabox.gif" width="150">
+<img src="https://cdn.teslarpi.com/assets/img/teslabox2.gif" width="221">
+
+<strong>If you're overwhelemd by these instructions, you can just buy the hardware and [order a pre-installed TeslaBox SD card](https://www.teslarpi.com).</strong>
 
 ## Hardware requirments
 - Raspberry Pi 4 with at least 4GB ram, at least 64GB of storage and a card reader (<a href="https://s.click.aliexpress.com/e/_DeKPRyj" target="_blank">Like these kits</a>)
