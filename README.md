@@ -9,7 +9,7 @@ New: Cinematic sentry mode, see [here](https://twitter.com/mluggy/status/1628439
 
 New: TeslaBox can also run [TeslaMate.](https://github.com/adriankumpf/teslamate)
 
-<img src="https://cdn.teslarpi.com/assets/img/teslabox-full" width="320" height="180">
+<img src="https://cdn.teslarpi.com/assets/img/teslabox-full.gif" width="320" height="180">
 
 <strong>If you're overwhelemd by these instructions, you can just buy the hardware and [order a pre-installed TeslaBox SD card](https://www.teslarpi.com).</strong>
 
