@@ -192,7 +192,6 @@ New: TeslaBox can also run [TeslaMate.](https://github.com/adriankumpf/teslamate
 
   [Service]
   Environment="NODE_ENV=production"
-  Environment="AWS_SDK_JS_SUPPRESS_MAINTENANCE_MODE_MESSAGE=1"
 
   # To enable archive and/or email, enter these, replacing *** with the actual values (i.e Environment="AWS_DEFAULT_REGION=us-east-1")
   # Uncomment Environment="S3_ENDPOINT=***" if you use other compatible bucket (ex. https://minio.mydomain.com or https://s3.eu-west-2.wasabisys.com)
