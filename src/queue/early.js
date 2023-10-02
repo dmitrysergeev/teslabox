@@ -39,19 +39,22 @@ exports.start = (cb) => {
   q = new Queue((input, cb) => {
     async.series([
       (cb) => {
-        if (input.steps.includes('processed')) {
+        if (input.step !== 1) {
           return cb()
         }
 
         const start = Math.max(input.event.timestamp - input.timestamp - 2, 0)
         const duration = Math.round(settings.duration)
         const timestamp = input.timestamp + start
-        let command = `ffmpeg -y -hide_banner -loglevel error -i ${settings.iconFile} -ss ${start} -t ${duration} -i ${input.file} -filter_complex "[0]scale=15:15 [icon]; [1]fps=5,scale=640:480:flags=lanczos,split[s0][s1];[s0]palettegen[p];[s1][p]paletteuse,drawtext=fontfile='${settings.fontFile}':fontcolor=${settings.fontColor}:fontsize=12:borderw=1:bordercolor=${settings.borderColor}@1.0:x=22:y=465:text='TeslaBox ${input.carName.replace(/'/g, '\\')} ${_.upperFirst(input.event.type)}${input.event.type === 'sentry' ? ` (${_.upperFirst(input.event.angle)})` : ''} %{pts\\:localtime\\:${timestamp}}' [image]; [image][icon]overlay=5:462" -loop 0 ${input.outFile}`
+
+        const width = input.hwVersion === 4 ? 741 : 640
+
+        let command = `ffmpeg -y -hide_banner -loglevel error -i ${settings.iconFile} -ss ${start} -t ${duration} -i ${input.file} -filter_complex "[0]scale=15:15 [icon]; [1]fps=5,scale=${width}:480:flags=lanczos,split[s0][s1];[s0]palettegen[p];[s1][p]paletteuse,drawtext=fontfile='${settings.fontFile}':fontcolor=${settings.fontColor}:fontsize=12:borderw=1:bordercolor=${settings.borderColor}@1.0:x=22:y=465:text='TeslaBox ${input.carName.replace(/'/g, '\\')} ${_.upperFirst(input.event.type)}${input.event.type === 'sentry' ? ` (${_.upperFirst(input.event.angle)})` : ''} %{pts\\:localtime\\:${timestamp}}' [image]; [image][icon]overlay=5:462" -loop 0 ${input.outFile}`
 
         log.debug(`[queue/early] ${input.id} processing: ${command}`)
         exec(command, (err) => {
           if (!err) {
-            input.steps.push('processed')
+            input.step++
             fs.rm(input.file, () => {})
           }
 
@@ -59,7 +62,7 @@ exports.start = (cb) => {
         })
       },
       (cb) => {
-        if (input.steps.includes('uploaded')) {
+        if (input.step !== 2) {
           return cb()
         }
 
@@ -74,9 +77,9 @@ exports.start = (cb) => {
           }
 
           log.debug(`[queue/early] ${input.id} uploading: ${input.outKey}`)
-          aws.s3.putObject(input.outKey, fileContents, (err) => {
+          aws.s3.putObject(input.outKey, fileContents, 'image/gif', (err) => {
             if (!err) {
-              input.steps.push('uploaded')
+              input.step++
               fs.rm(input.outFile, () => {})
             }
 
@@ -85,7 +88,7 @@ exports.start = (cb) => {
         })
       },
       (cb) => {
-        if (input.steps.includes('signed')) {
+        if (input.step !== 3) {
           return cb()
         }
 
@@ -110,14 +113,14 @@ exports.start = (cb) => {
           }
         ], (err) => {
           if (!err) {
-            input.steps.push('signed')
+            input.step++
           }
 
           cb(err)
         })
       }
     ], (err) => {
-      if (!err || !input.steps.includes('processed')) {
+      if (!err || input.step < 2) {
         fs.rm(input.file, () => {})
         fs.rm(input.outFile, () => {})
 
@@ -128,7 +131,7 @@ exports.start = (cb) => {
           log.info(`[queue/early] ${input.id} sent after ${+new Date() - input.startedAt}ms`)
 
           queue.notify.push({
-            id: input.id,
+            id: `${input.id} (shortVideo)`,
             event: input.event,
             shortUrl: input.shortUrl,
             videoUrl: input.videoUrl
@@ -152,7 +155,7 @@ exports.push = (input) => {
     outKey: `${carName}/shorts/${input.folder.split('_')[0]}/${input.folder}-${input.event.type}.gif`,
     videoKey: `${carName}/archives/${input.folder.split('_')[0]}/${input.folder}-${input.event.type}.mp4`,
     startedAt: +new Date(),
-    steps: []
+    step: 1
   })
 
   q.push(input)

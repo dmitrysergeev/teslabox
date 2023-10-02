@@ -31,7 +31,64 @@ exports.start = (cb) => {
         cb()
       },
       (cb) => {
-        if (input.steps.includes('emailed') || !input.emailRecipients.length) {
+        if (input.step !== 1) {
+          return cb()
+        }
+
+        if (!input.telegramRecipients.length) {
+          input.step++
+          return cb()
+        }
+
+        let text = input.text
+        if (!text) {
+          text = `${input.carName} ${_.upperFirst(input.event.type)}`
+          if (input.event.type === 'sentry') text += ` (${_.upperFirst(input.event.angle)})`
+          text += ` ${input.event.datetime}`
+          text += `\n[Map](https://www.google.com/maps?q=${input.event.est_lat},${input.event.est_lon})`
+          text += ` | [App](${settings.appUrl})`
+        }
+
+        if (input.shortUrl) {
+          if (input.videoUrl) text += ` | [Video](${input.videoUrl})`
+
+          telegram.sendAnimation(input.telegramRecipients, input.shortUrl, text, (err) => {
+            if (!err) {
+              input.step++
+              log.debug(`[queue/notify] ${input.id} telegramed short ${input.telegramRecipients.join(',')} after ${+new Date() - input.startedAt}ms`)
+            }
+
+            cb(err)
+          })
+        } else if (input.videoUrl) {
+          text += ` | [Video](${input.videoUrl})`
+
+          telegram.sendVideo(input.telegramRecipients, input.videoUrl, text, (err) => {
+            if (!err) {
+              input.step++
+              log.debug(`[queue/notify] ${input.id} telegramed video ${input.telegramRecipients.join(',')} after ${+new Date() - input.startedAt}ms`)
+            }
+
+            cb(err)
+          })
+        } else {
+          telegram.sendMessage(input.telegramRecipients, text, (err) => {
+            if (!err) {
+              input.step++
+              log.debug(`[queue/notify] ${input.id} telegramed message ${input.telegramRecipients.join(',')} after ${+new Date() - input.startedAt}ms`)
+            }
+
+            cb(err)
+          })
+        }
+      },
+      (cb) => {
+        if (input.step !== 2) {
+          return cb()
+        }
+
+        if (!input.emailRecipients.length) {
+          input.step++
           return cb()
         }
 
@@ -60,63 +117,16 @@ exports.start = (cb) => {
 
         ses.sendEmail(input.emailRecipients, subject, text, html, (err) => {
           if (!err) {
-            input.steps.push('emailed')
+            input.step++
             log.debug(`[queue/notify] ${input.id} emailed ${input.emailRecipients.join(',')} after ${+new Date() - input.startedAt}ms`)
           }
 
           cb(err)
         })
-      },
-      (cb) => {
-        if (input.steps.includes('telegramed') || !input.telegramRecipients.length) {
-          return cb()
-        }
-
-        let text = input.text
-        if (!text) {
-          text = `${input.carName} ${_.upperFirst(input.event.type)}`
-          if (input.event.type === 'sentry') text += ` (${_.upperFirst(input.event.angle)})`
-          text += ` ${input.event.datetime}`
-          text += `\n[Map](https://www.google.com/maps?q=${input.event.est_lat},${input.event.est_lon})`
-          text += ` | [App](${settings.appUrl})`
-        }
-
-        if (input.shortUrl) {
-          if (input.videoUrl) text += ` | [Video](${input.videoUrl})`
-
-          telegram.sendAnimation(input.telegramRecipients, input.shortUrl, text, (err) => {
-            if (!err) {
-              input.steps.push('telegramed')
-              log.debug(`[queue/notify] ${input.id} telegramed short ${input.telegramRecipients.join(',')} after ${+new Date() - input.startedAt}ms`)
-            }
-
-            cb(err)
-          })
-        } else if (input.videoUrl) {
-          text += ` | [Video](${input.videoUrl})`
-
-          telegram.sendVideo(input.telegramRecipients, input.videoUrl, text, (err) => {
-            if (!err) {
-              input.steps.push('telegramed')
-              log.debug(`[queue/notify] ${input.id} telegramed video ${input.telegramRecipients.join(',')} after ${+new Date() - input.startedAt}ms`)
-            }
-
-            cb(err)
-          })
-        } else {
-          telegram.sendMessage(input.telegramRecipients, text, (err) => {
-            if (!err) {
-              input.steps.push('telegramed')
-              log.debug(`[queue/notify] ${input.id} telegramed message ${input.telegramRecipients.join(',')} after ${+new Date() - input.startedAt}ms`)
-            }
-
-            cb(err)
-          })
-        }
       }
     ], (err) => {
       if (err && ping.isAlive()) {
-        log.warn(`[queue/notify] ${input.id} failed: ${err}`)
+        log.warn(`[queue/notify] ${input.id} failed: ${err}`, err, input)
         q.cancel(input.id)
       }
 
@@ -137,7 +147,7 @@ exports.push = (input) => {
     emailRecipients: config.get('emailRecipients'),
     telegramRecipients: config.get('telegramRecipients'),
     startedAt: +new Date(),
-    steps: []
+    step: 1
   })
 
   q.push(input)

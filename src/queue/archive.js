@@ -53,12 +53,12 @@ exports.start = (cb) => {
 
     async.series([
       (cb) => {
-        if (input.steps.includes('processed')) {
+        if (input.step !== 1) {
           return cb()
         }
 
         async.eachSeries(timestamps, (timestamp, cb) => {
-          if (input.steps.includes(`processed-${timestamp}`)) {
+          if (input.caches[timestamp]) {
             return cb()
           }
 
@@ -82,16 +82,9 @@ exports.start = (cb) => {
             async.eachOfSeries(files, (file, angle, cb) => {
               input.files[`${timestamp}-${file.angle}`] = input.files[`${timestamp}-${angle}`] || path.join(settings.ramDir, `${chance.hash()}.log`)
 
-              const crop = {
-                front: '1280:680:0:280',
-                right: '1060:640:60:320',
-                back: '940:530:170:170',
-                left: '1060:640:160:320'
-              }[angle]
+              const command = `ffmpeg -y -hide_banner -loglevel error -ss ${file.start} -t ${file.duration} -i ${file.file} -vf select='not(mod(n\\,${settings.cinematicFrames}))',select='gte(scene\\,0)',metadata=print:file=${input.files[`${timestamp}-${file.angle}`]} -an -f null -`
 
-              const command = `ffmpeg -y -hide_banner -loglevel error -ss ${file.start} -t ${file.duration} -i ${file.file} -vf select='not(mod(n\\,${settings.cinematicFrames}))',crop=${crop},select='gte(scene\\,0)',metadata=print:file=${input.files[`${timestamp}-${file.angle}`]} -an -f null -`
-
-              log.debug(`[queue/archive] ${input.id} processing: ${command}`)
+              log.debug(`[queue/archive] ${input.id} detecting: ${command}`)
               exec(command, (err) => {
                 if (err) {
                   return cb(err)
@@ -131,6 +124,7 @@ exports.start = (cb) => {
               const orderedSeconds = _.orderBy(seconds, ['second', 'isEvent', 'score'], ['asc', 'desc', 'desc'])
               const uniqueSeconds = _.uniqBy(_.map(orderedSeconds, 'second'))
               const scenes = []
+              let key = 1
 
               _.each(uniqueSeconds, (uniqueSecond) => {
                 const second = _.find(orderedSeconds, { second: uniqueSecond })
@@ -141,15 +135,16 @@ exports.start = (cb) => {
                 if (input.lastAngle === second.angle || (!second.isEvent && (second.angle !== nextSecond.angle || duration < settings.cinematicDuration))) {
                   duration++
                 } else {
-                  scenes.push({ angle: input.lastAngle, start, duration })
+                  scenes.push({ angle: input.lastAngle, start, duration, key })
                   start = start + duration
                   input.lastAngle = second.angle
                   duration = 0
+                  key++
                 }
               })
 
               if (duration) {
-                scenes.push({ angle: input.lastAngle, start, duration })
+                scenes.push({ angle: input.lastAngle, start, duration, key })
               }
 
               let command = `ffmpeg -y -hide_banner -loglevel error -i ${settings.iconFile}`
@@ -159,16 +154,26 @@ exports.start = (cb) => {
 
               command += ` -filter_complex "[0]scale=25:25 [icon]; `
 
-              for (let i = 0; i < scenes.length; i++) {
-                command += `[${i + 1}]`
-              }
+              _.each(scenes, (scene) => {
+                if (input.hwVersion === 4 && scene.angle === 'front') {
+                  command += `[${scene.key}]scale=1448:938 [v${scene.key}]; `
+                } else {
+                  command += `[${scene.key}]null [v${scene.key}]; `
+                }
+              })
 
-              command += `concat=n=${scenes.length}:v=1 [all]; [all]drawtext=fontfile='${settings.fontFile}':fontcolor=${settings.fontColor}:fontsize=25:borderw=1:bordercolor=${settings.borderColor}@1.0:x=38:y=930:text='TeslaBox ${input.carName.replace(/'/g, '\\')} ${_.upperFirst(input.event.type)} %{pts\\:localtime\\:${timestampSeconds}}' [video]; [video][icon]overlay=8:928" -preset ${settings.preset} -crf ${crf} -r 24 ${input.files[timestamp]}`
+              _.each(scenes, (scene) => {
+                command += `[v${scene.key}]`
+              })
+
+              const heightDelta = input.hwVersion === 4 ? -22 : 0
+
+              command += `concat=n=${scenes.length}:v=1 [all]; [all]drawtext=fontfile='${settings.fontFile}':fontcolor=${settings.fontColor}:fontsize=25:borderw=1:bordercolor=${settings.borderColor}@1.0:x=38:y=${930 + heightDelta}:text='TeslaBox ${input.carName.replace(/'/g, '\\')} ${_.upperFirst(input.event.type)} %{pts\\:localtime\\:${timestampSeconds}}' [video]; [video][icon]overlay=8:${928 + heightDelta}" -preset ${settings.preset} -crf ${crf} ${input.files[timestamp]}`
 
               log.debug(`[queue/archive] ${input.id} processing: ${command}`)
               exec(command, (err) => {
                 if (!err) {
-                  input.steps.push(`processed-${timestamp}`)
+                  input.caches[timestamp] = true
                   _.each(['front', 'right', 'back', 'left'], (angle) => {
                     const file = input.files[`${timestamp}-${angle}`]
                     fs.rm(file, () => {})
@@ -181,30 +186,37 @@ exports.start = (cb) => {
           } else {
             let command = `ffmpeg -y -hide_banner -loglevel error -i ${settings.iconFile} -ss ${front.start} -t ${front.duration} -i ${front.file} -ss ${front.start} -t ${front.duration} -i ${right.file} -ss ${front.start} -t ${front.duration} -i ${back.file} -ss ${front.start} -t ${front.duration} -i ${left.file} -t ${front.duration} -filter_complex "[0]scale=25:25 [icon]; `
 
+            const overlayWidth = input.hwVersion === 4 ? 1930 : 1920
+            const largeWidth = input.hwVersion === 4 ? 1448 : 1440
+            const largeHeight = input.hwVersion === 4 ? 938 : 1080
+            const smallWidth = input.hwVersion === 4 ? 482 : 480
+            const smallHeight = input.hwVersion === 4 ? 312 : 360
+            const heightDelta = input.hwVersion === 4 ? -142 : 0
+
             switch (input.event.angle) {
               case 'front':
-                command += `[1]scale=1440:1080,pad=1920:1080 [front]; [2]scale=480:360 [right]; [3]scale=480:360 [back]; [4]scale=480:360 [left]; [front][back] overlay=1440:0 [fb]; [fb][left] overlay=1440:360 [fbl]; [fbl][right] overlay=1440:720`
+                command += `[1]scale=${largeWidth}:${largeHeight},pad=${overlayWidth}:${largeHeight} [front]; [2]scale=${smallWidth}:${smallHeight} [right]; [3]scale=${smallWidth}:${smallHeight} [back]; [4]scale=${smallWidth}:${smallHeight} [left]; [front][back] overlay=${largeWidth}:0 [fb]; [fb][left] overlay=${largeWidth}:${smallHeight} [fbl]; [fbl][right] overlay=${largeWidth}:${smallHeight * 2}`
                 break
 
               case 'right':
-                command += `[1]scale=480:360 [front]; [2]scale=1440:1080,pad=1920:1080 [right]; [3]scale=480:360 [back]; [4]scale=480:360 [left]; [right][left] overlay=1440:0 [rl]; [rl][front] overlay=1440:360 [rlf]; [rlf][back] overlay=1440:720`
+                command += `[1]scale=${smallWidth}:${smallHeight} [front]; [2]scale=${largeWidth}:${largeHeight},pad=${overlayWidth}:${largeHeight} [right]; [3]scale=${smallWidth}:${smallHeight} [back]; [4]scale=${smallWidth}:${smallHeight} [left]; [right][left] overlay=${largeWidth}:0 [rl]; [rl][front] overlay=${largeWidth}:${smallHeight} [rlf]; [rlf][back] overlay=${largeWidth}:${smallHeight * 2}`
                 break
 
               case 'back':
-                command += `[1]scale=480:360 [front]; [2]scale=480:360 [right]; [3]scale=1440:1080,pad=1920:1080 [back]; [4]scale=480:360 [left]; [back][front] overlay=1440:0 [bf]; [bf][left] overlay=1440:360 [bfl]; [bfl][right] overlay=1440:720`
+                command += `[1]scale=${smallWidth}:${smallHeight} [front]; [2]scale=${smallWidth}:${smallHeight} [right]; [3]scale=${largeWidth}:${largeHeight},pad=${overlayWidth}:${largeHeight} [back]; [4]scale=${smallWidth}:${smallHeight} [left]; [back][front] overlay=${largeWidth}:0 [bf]; [bf][left] overlay=${largeWidth}:${smallHeight} [bfl]; [bfl][right] overlay=${largeWidth}:${smallHeight * 2}`
                 break
 
               case 'left':
-                command += `[1]scale=480:360 [front]; [2]scale=480:360 [right]; [3]scale=480:360 [back]; [4]scale=1440:1080,pad=1920:1080 [left]; [left][right] overlay=1440:0 [lr]; [lr][front] overlay=1440:360 [lrf]; [lrf][back] overlay=1440:720`
+                command += `[1]scale=${smallWidth}:${smallHeight} [front]; [2]scale=${smallWidth}:${smallHeight} [right]; [3]scale=${smallWidth}:${smallHeight} [back]; [4]scale=${largeWidth}:${largeHeight},pad=${overlayWidth}:${largeHeight} [left]; [left][right] overlay=${largeWidth}:0 [lr]; [lr][front] overlay=${largeWidth}:${smallHeight} [lrf]; [lrf][back] overlay=${largeWidth}:${smallHeight * 2}`
                 break
             }
 
-            command += ` [all]; [all]drawtext=fontfile='${settings.fontFile}':fontcolor=${settings.fontColor}:fontsize=25:borderw=1:bordercolor=${settings.borderColor}@1.0:x=38:y=1050:text='TeslaBox ${input.carName.replace(/'/g, '\\')} ${_.upperFirst(input.event.type)}${input.event.type === 'sentry' ? ` (${_.upperFirst(input.event.angle)})` : ''} %{pts\\:localtime\\:${timestampSeconds}}' [video]; [video][icon]overlay=8:1048" -preset ${settings.preset} -crf ${crf} ${input.files[timestamp]}`
+            command += ` [all]; [all]drawtext=fontfile='${settings.fontFile}':fontcolor=${settings.fontColor}:fontsize=25:borderw=1:bordercolor=${settings.borderColor}@1.0:x=38:y=${1050 + heightDelta}:text='TeslaBox ${input.carName.replace(/'/g, '\\')} ${_.upperFirst(input.event.type)}${input.event.type === 'sentry' ? ` (${_.upperFirst(input.event.angle)})` : ''} %{pts\\:localtime\\:${timestampSeconds}}' [video]; [video][icon]overlay=8:${1048 + heightDelta}" -preset ${settings.preset} -crf ${crf} ${input.files[timestamp]}`
 
             log.debug(`[queue/archive] ${input.id} processing: ${command}`)
             exec(command, (err) => {
               if (!err) {
-                input.steps.push(`processed-${timestamp}`)
+                input.caches[timestamp] = true
                 fs.rm(front.file, () => {})
                 fs.rm(right.file, () => {})
                 fs.rm(back.file, () => {})
@@ -216,14 +228,14 @@ exports.start = (cb) => {
           }
         }, (err) => {
           if (!err) {
-            input.steps.push('processed')
+            input.step++
           }
 
           cb(err)
         })
       },
       (cb) => {
-        if (input.steps.includes('chaptered')) {
+        if (input.step !== 2) {
           return cb()
         }
 
@@ -233,14 +245,14 @@ exports.start = (cb) => {
 
         fs.writeFile(input.chaptersFile, contents, (err) => {
           if (!err) {
-            input.steps.push('chaptered')
+            input.step++
           }
 
           cb(err)
         })
       },
       (cb) => {
-        if (input.steps.includes('concated')) {
+        if (input.step !== 3) {
           return cb()
         }
 
@@ -249,7 +261,7 @@ exports.start = (cb) => {
         log.debug(`[queue/archive] ${input.id} concating: ${command}`)
         exec(command, (err) => {
           if (!err) {
-            input.steps.push('concated')
+            input.step++
             _.each(_.values(input.files), (file) => {
               fs.rm(file, () => {})
             })
@@ -261,7 +273,7 @@ exports.start = (cb) => {
         })
       },
       (cb) => {
-        if (input.steps.includes('silenced')) {
+        if (input.step !== 4) {
           return cb()
         }
 
@@ -270,7 +282,7 @@ exports.start = (cb) => {
         log.debug(`[queue/archive] ${input.id} silencing: ${command}`)
         exec(command, (err) => {
           if (!err) {
-            input.steps.push('silenced')
+            input.step++
             fs.rm(input.concatFile, () => {})
           }
 
@@ -278,7 +290,7 @@ exports.start = (cb) => {
         })
       },
       (cb) => {
-        if (input.steps.includes('uploaded')) {
+        if (input.step !== 5) {
           return cb()
         }
 
@@ -293,9 +305,9 @@ exports.start = (cb) => {
           }
 
           log.debug(`[queue/archive] ${input.id} uploading: ${input.outKey}`)
-          aws.s3.putObject(input.outKey, fileContents, (err) => {
+          aws.s3.putObject(input.outKey, fileContents, 'video/mp4', (err) => {
             if (!err) {
-              input.steps.push('uploaded')
+              input.step++
               fs.rm(input.outFile, () => {})
             }
 
@@ -304,13 +316,13 @@ exports.start = (cb) => {
         })
       },
       (cb) => {
-        if (input.steps.includes('signed')) {
+        if (input.step !== 6) {
           cb()
         }
 
         aws.s3.getSignedUrl(input.outKey, settings.signedExpirySeconds, (err, url) => {
           if (!err) {
-            input.steps.push('signed')
+            input.step++
             input.videoUrl = url
           }
 
@@ -318,7 +330,7 @@ exports.start = (cb) => {
         })
       }
     ], (err) => {
-      if (!err || !input.steps.includes('silenced')) {
+      if (!err || input.step < 5) {
         _.each(input.tempFiles, (file) => {
           fs.rm(file.file, () => {})
         })
@@ -355,7 +367,7 @@ exports.start = (cb) => {
 
           if (input.notifications.includes('fullVideo')) {
             queue.notify.push({
-              id: input.id,
+              id: `${input.id} (fullVideo)`,
               event: input.event,
               videoUrl: input.videoUrl
             })
@@ -386,7 +398,8 @@ exports.push = (input) => {
     isSentryCinematic: input.event.type === 'sentry' && config.get('sentryCinematic'),
     files: {},
     startedAt: +new Date(),
-    steps: []
+    step: 1,
+    caches: {}
   })
 
   q.push(input)

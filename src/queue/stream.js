@@ -39,33 +39,37 @@ exports.start = (cb) => {
   q = new Queue((input, cb) => {
     async.series([
       (cb) => {
-        if (input.steps.includes('processed')) {
+        if (input.step !== 1) {
           return cb()
         }
 
         const crf = settings.qualityCrfs[input.streamQuality]
 
         let command
+        let width
         switch (input.streamQuality) {
           case 'highest':
           case 'high':
-            command = `ffmpeg -y -hide_banner -loglevel error -i ${settings.iconFile} -i ${input.tempFile} -filter_complex "[0]scale=18:18 [icon]; [1]scale=1024:768,drawtext=fontfile='${settings.fontFile}':fontcolor=${settings.fontColor}:fontsize=14:borderw=1:bordercolor=${settings.borderColor}@1.0:x=25:y=750:text='TeslaBox ${input.carName.replace(/'/g, '\\')} \(${_.upperFirst(input.angle)}\) %{pts\\:localtime\\:${input.timestamp}}' [video]; [video][icon]overlay=5:747" -preset ${settings.preset} -crf ${crf} ${input.file}`
+            width = input.hwVersion === 4 ? 1186 : 1024
+            command = `ffmpeg -y -hide_banner -loglevel error -i ${settings.iconFile} -i ${input.tempFile} -filter_complex "[0]scale=18:18 [icon]; [1]scale=${width}:768,drawtext=fontfile='${settings.fontFile}':fontcolor=${settings.fontColor}:fontsize=14:borderw=1:bordercolor=${settings.borderColor}@1.0:x=25:y=750:text='TeslaBox ${input.carName.replace(/'/g, '\\')} \(${_.upperFirst(input.angle)}\) %{pts\\:localtime\\:${input.timestamp}}' [video]; [video][icon]overlay=5:747" -preset ${settings.preset} -crf ${crf} ${input.file}`
             break
 
           case 'low':
           case 'lowest':
-            command = `ffmpeg -y -hide_banner -loglevel error -i ${settings.iconFile} -i ${input.tempFile} -filter_complex "[0]scale=12:12 [icon]; [1]scale=320:240,drawtext=fontfile='${settings.fontFile}':fontcolor=${settings.fontColor}:fontsize=9:borderw=1:bordercolor=${settings.borderColor}@1.0:x=19:y=228:text='TeslaBox ${input.carName.replace(/'/g, '\\')} \(${_.upperFirst(input.angle)}\) %{pts\\:localtime\\:${input.timestamp}}' [video]; [video][icon]overlay=5:227" -preset ${settings.preset} -crf ${crf} ${input.file}`
+            width = input.hwVersion === 4 ? 370 : 320
+            command = `ffmpeg -y -hide_banner -loglevel error -i ${settings.iconFile} -i ${input.tempFile} -filter_complex "[0]scale=12:12 [icon]; [1]scale=${width}:240,drawtext=fontfile='${settings.fontFile}':fontcolor=${settings.fontColor}:fontsize=9:borderw=1:bordercolor=${settings.borderColor}@1.0:x=19:y=228:text='TeslaBox ${input.carName.replace(/'/g, '\\')} \(${_.upperFirst(input.angle)}\) %{pts\\:localtime\\:${input.timestamp}}' [video]; [video][icon]overlay=5:227" -preset ${settings.preset} -crf ${crf} ${input.file}`
             break
 
           default:
-            command = `ffmpeg -y -hide_banner -loglevel error -i ${settings.iconFile} -i ${input.tempFile} -filter_complex "[0]scale=15:15 [icon]; [1]scale=640:480,drawtext=fontfile='${settings.fontFile}':fontcolor=${settings.fontColor}:fontsize=12:borderw=1:bordercolor=${settings.borderColor}@1.0:x=22:y=465:text='TeslaBox ${input.carName.replace(/'/g, '\\')} \(${_.upperFirst(input.angle)}\) %{pts\\:localtime\\:${input.timestamp}}' [video]; [video][icon]overlay=5:462" -preset ${settings.preset} -crf ${crf} ${input.file}`
+            width = input.hwVersion === 4 ? 742 : 640
+            command = `ffmpeg -y -hide_banner -loglevel error -i ${settings.iconFile} -i ${input.tempFile} -filter_complex "[0]scale=15:15 [icon]; [1]scale=${width}:480,drawtext=fontfile='${settings.fontFile}':fontcolor=${settings.fontColor}:fontsize=12:borderw=1:bordercolor=${settings.borderColor}@1.0:x=22:y=465:text='TeslaBox ${input.carName.replace(/'/g, '\\')} \(${_.upperFirst(input.angle)}\) %{pts\\:localtime\\:${input.timestamp}}' [video]; [video][icon]overlay=5:462" -preset ${settings.preset} -crf ${crf} ${input.file}`
         }
 
         log.debug(`[queue/stream] ${input.id} processing: ${command}`)
 
         exec(command, (err) => {
           if (!err) {
-            input.steps.push('processed')
+            input.step++
             fs.rm(input.tempFile, () => {})
           }
 
@@ -73,13 +77,13 @@ exports.start = (cb) => {
         })
       },
       (cb) => {
-        if (input.steps.includes('copied')) {
+        if (input.step !== 2) {
           return cb()
         }
 
         exec(`${input.isStreamCopy ? 'cp' : 'mv'} ${input.file} ${input.outFile}`, (err) => {
           if (!err) {
-            input.steps.push('copied')
+            input.step++
             streams[input.angle] = input.folder
           }
 
@@ -87,7 +91,12 @@ exports.start = (cb) => {
         })
       },
       (cb) => {
-        if (input.steps.includes('uploaded') || !input.isStreamCopy) {
+        if (input.step !== 3) {
+          return cb()
+        }
+
+        if (!input.isStreamCopy) {
+          step++
           return cb()
         }
 
@@ -103,9 +112,9 @@ exports.start = (cb) => {
 
           log.debug(`[queue/stream] ${input.id} uploading: ${input.outKey}`)
 
-          aws.s3.putObject(input.outKey, fileContents, (err) => {
+          aws.s3.putObject(input.outKey, fileContents, 'video/mp4', (err) => {
             if (!err) {
-              input.steps.push('uploaded')
+              input.step++
               fs.rm(input.file, () => {})
             }
 
@@ -114,7 +123,7 @@ exports.start = (cb) => {
         })
       }
     ], (err) => {
-      if (!err || !input.steps.includes('copied')) {
+      if (!err || input.step < 3) {
         fs.rm(input.tempFile, () => {})
         fs.rm(input.file, () => {})
 
@@ -148,7 +157,7 @@ exports.push = (input) => {
     outFile: path.join(settings.ramDir, `${input.angle}.mp4`),
     outKey: `${carName}/streams/${input.folder.split('_')[0]}/${input.folder}-${input.angle}.mp4`,
     startedAt: +new Date(),
-    steps: []
+    step: 1
   })
 
   q.push(input)
