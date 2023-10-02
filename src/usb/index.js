@@ -23,6 +23,7 @@ const settings = {
 
 let isMounted
 let lastSpace
+let hwVersion
 
 exports.start = (cb) => {
   cb = cb || function () {}
@@ -101,23 +102,39 @@ exports.start = (cb) => {
                   file: currentFile
                 })
 
-                if (isStream && streamAngles.includes(angle)) {
-                  copyTemp(currentFile, (err, tempFile) => {
-                    if (!err) {
-                      queue.stream.push({
-                        id: currentFile,
-                        folder,
-                        tempFile,
-                        angle,
-                        timestamp
-                      })
+                async.series([
+                  (cb) => {
+                    if (hwVersion) {
+                      return cb()
                     }
 
-                    cb(err)
-                  })
-                } else {
-                  cb()
-                }
+                    exec(`ffprobe -v error -select_streams v:0 -show_entries stream=width,height -of csv=s=x:p=0 ${currentFile}`, (err, stdout) => {
+                      hwVersion = stdout.includes('1448x938') || stdout.includes('2896x1876') ? 4 : 3
+                      log.debug(`[usb] determined hwVersion: ${hwVersion}`)
+                      cb()
+                    })
+                  },
+                  (cb) => {
+                    if (!isStream || !streamAngles.includes(angle)) {
+                      return cb()
+                    }
+
+                    copyTemp(currentFile, (err, tempFile) => {
+                      if (!err) {
+                        queue.stream.push({
+                          id: currentFile,
+                          folder,
+                          tempFile,
+                          angle,
+                          timestamp,
+                          hwVersion
+                        })
+                      }
+
+                      cb(err)
+                    })
+                  }
+                ], cb)
               }, cb)
             })
           },
@@ -207,6 +224,7 @@ exports.start = (cb) => {
 
                                   queue.early.push({
                                     id: currentFile,
+                                    hwVersion,
                                     folder,
                                     event,
                                     timestamp,
@@ -251,6 +269,7 @@ exports.start = (cb) => {
 
                         queue.archive.push({
                           id: currentFile,
+                          hwVersion,
                           folder,
                           event,
                           tempFiles
@@ -258,7 +277,7 @@ exports.start = (cb) => {
 
                         if (notifications.includes('earlyWarning')) {
                           queue.notify.push({
-                            id: currentFile,
+                            id: `${currentFile} (earlyWarning)`,
                             event
                           })
                         }
