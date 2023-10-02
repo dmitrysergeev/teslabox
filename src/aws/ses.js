@@ -1,6 +1,6 @@
 const log = require('../log')
 
-const AWS = require('aws-sdk')
+const { SESv2Client, SendEmailCommand } = require('@aws-sdk/client-sesv2')
 
 const settings = {
   accessKeyId: process.env.AWS_ACCESS_KEY_ID,
@@ -18,7 +18,7 @@ exports.start = (cb) => {
     return cb()
   }
 
-  client = new AWS.SESV2({
+  client = new SESv2Client({
     credentials: {
       accessKeyId: settings.accessKeyId,
       secretAccessKey: settings.secretAccessKey
@@ -69,5 +69,5 @@ exports.sendEmail = (ToAddresses, subject, text, html, cb) => {
     }
   }
 
-  client.sendEmail(params, cb)
+  client.send(new SendEmailCommand(params)).then((data) => cb(null, data)).catch((err) => cb(err))
 }

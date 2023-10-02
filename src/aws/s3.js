@@ -1,6 +1,7 @@
 const log = require('../log')
 
-const AWS = require('aws-sdk')
+const { S3Client, GetObjectCommand, PutObjectCommand } = require('@aws-sdk/client-s3')
+const { getSignedUrl } = require('@aws-sdk/s3-request-presigner')
 
 const settings = {
   accessKeyId: process.env.AWS_ACCESS_KEY_ID,
@@ -19,7 +20,7 @@ exports.start = (cb) => {
     return cb()
   }
 
-  client = new AWS.S3({
+  client = new S3Client({
     credentials: {
       accessKeyId: settings.accessKeyId,
       secretAccessKey: settings.secretAccessKey
@@ -30,30 +31,34 @@ exports.start = (cb) => {
   cb()
 }
 
-exports.putObject = (Key, Body, cb) => {
+exports.putObject = (Key, Body, ContentType = 'application/octet-stream', cb) => {
   cb = cb || function () {}
 
   if (!client) {
     return cb()
   }
 
-  client.putObject({
+  const params = {
     Bucket: settings.bucket,
     Key,
-    Body
-  }, cb)
+    Body,
+    ContentType
+  }
+
+  client.send(new PutObjectCommand(params)).then((data) => cb(null, data)).catch((err) => cb(err))
 }
 
-exports.getSignedUrl = (Key, Expires, cb) => {
+exports.getSignedUrl = (Key, expiresIn, cb) => {
   cb = cb || function () {}
 
   if (!client) {
     return cb()
   }
 
-  client.getSignedUrl('getObject', {
+  const params = {
     Bucket: settings.bucket,
-    Key,
-    Expires
-  }, cb)
+    Key
+  }
+
+  getSignedUrl(client, new GetObjectCommand(params), { expiresIn }).then((data) => cb(null, data)).catch((err) => cb(err))
 }
