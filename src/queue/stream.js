@@ -36,6 +36,12 @@ let streams = {}
 exports.start = (cb) => {
   cb = cb || function () {}
 
+  const params = {
+    concurrent: settings.concurrent,
+    maxRetries: settings.maxRetries,
+    retryDelay: settings.retryDelay
+  }
+
   q = new Queue((input, cb) => {
     async.series([
       (cb) => {
@@ -137,11 +143,7 @@ exports.start = (cb) => {
 
       cb(err)
     })
-  }, {
-    concurrent: settings.concurrent,
-    maxRetries: settings.maxRetries,
-    retryDelay: settings.retryDelay
-  })
+  }, params)
 
   cb()
 }

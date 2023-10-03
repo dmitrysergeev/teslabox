@@ -5,6 +5,7 @@ const ses = require('../aws/ses')
 const telegram = require('../telegram')
 
 const _ = require('lodash')
+const fs = require('fs')
 const async = require('async')
 const Queue = require('better-queue')
 
@@ -19,6 +20,12 @@ let q
 
 exports.start = (cb) => {
   cb = cb || function () {}
+
+  const params = {
+    concurrent: settings.concurrent,
+    maxRetries: settings.maxRetries,
+    retryDelay: settings.retryDelay
+  }
 
   q = new Queue((input, cb) => {
     async.series([
@@ -49,10 +56,12 @@ exports.start = (cb) => {
           text += ` | [App](${settings.appUrl})`
         }
 
-        if (input.shortUrl) {
-          if (input.videoUrl) text += ` | [Video](${input.videoUrl})`
+        if (input.shortFile) {
+          text += ` | [Video](${input.videoUrl})`
 
-          telegram.sendAnimation(input.telegramRecipients, input.shortUrl, text, (err) => {
+          telegram.sendAnimation(input.telegramRecipients, input.shortFile, input.shortKey, text, (err) => {
+            fs.rm(input.shortFile, () => {})
+
             if (!err) {
               input.step++
               log.debug(`[queue/notify] ${input.id} telegramed short ${input.telegramRecipients.join(',')} after ${+new Date() - input.startedAt}ms`)
@@ -63,7 +72,7 @@ exports.start = (cb) => {
         } else if (input.videoUrl) {
           text += ` | [Video](${input.videoUrl})`
 
-          telegram.sendVideo(input.telegramRecipients, input.videoUrl, text, (err) => {
+          telegram.sendVideo(input.telegramRecipients, input.videoUrl, input.videoKey, text, (err) => {
             if (!err) {
               input.step++
               log.debug(`[queue/notify] ${input.id} telegramed video ${input.telegramRecipients.join(',')} after ${+new Date() - input.startedAt}ms`)
@@ -103,14 +112,13 @@ exports.start = (cb) => {
         if (!text) {
           text = `Map: <https://www.google.com/maps?q=${input.event.est_lat},${input.event.est_lon}>`
           text += `\nApp: <${settings.appUrl}>`
-          if (input.shortUrl) text += `\nShort: <${input.shortUrl}>`
+          if (input.shortUrl && input.shortUrl.startsWith('https://')) text += `\nShort: <${input.shortUrl}>`
           if (input.videoUrl) text += `\nVideo: <${input.videoUrl}>`
         }
 
         let html = input.html
         if (!html) {
-          html = input.shortUrl ? `<img src="${input.shortUrl}"><br>` : ''
-          html += `<a href="https://www.google.com/maps?q=${input.event.est_lat},${input.event.est_lon}" target="_blank">Map</a>`
+          html = `<a href="https://www.google.com/maps?q=${input.event.est_lat},${input.event.est_lon}" target="_blank">Map</a>`
           html += ` | <a href="${settings.appUrl}" target="_blank">App</a>`
           if (input.videoUrl) html += ` | <a href="${input.videoUrl}" target="_blank">Video</a>`
         }
@@ -126,17 +134,13 @@ exports.start = (cb) => {
       }
     ], (err) => {
       if (err && ping.isAlive()) {
-        log.warn(`[queue/notify] ${input.id} failed: ${err}`, err, input)
+        log.warn(`[queue/notify] ${input.id} failed: ${err}`)
         q.cancel(input.id)
       }
 
       cb(err)
     })
-  }, {
-    concurrent: settings.concurrent,
-    maxRetries: settings.maxRetries,
-    retryDelay: settings.retryDelay
-  })
+  }, params)
 
   cb()
 }
