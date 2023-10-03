@@ -96,7 +96,7 @@ exports.start = (cb) => {
         }
 
         if (!input.isStreamCopy) {
-          step++
+          input.step++
           return cb()
         }
 
