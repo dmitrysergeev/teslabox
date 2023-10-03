@@ -2,7 +2,10 @@ const log = require('../log')
 
 const _ = require('lodash')
 const async = require('async')
-const { TelegramClient } = require('messaging-api-telegram')
+const TelegramBot = require('node-telegram-bot-api')
+
+// see https://github.com/yagop/node-telegram-bot-api/blob/master/doc/usage.md#sending-files
+process.env.NTBA_FIX_350 = 1
 
 const settings = {
   accessToken: process.env.TELEGRAM_ACCESS_TOKEN
@@ -18,9 +21,7 @@ exports.start = (cb) => {
     return cb()
   }
 
-  client = new TelegramClient({
-    accessToken: settings.accessToken
-  })
+  client = new TelegramBot(settings.accessToken)
 
   cb()
 }
@@ -45,7 +46,7 @@ exports.sendMessage = (recipients, text, cb) => {
   }, cb)
 }
 
-exports.sendAnimation = (recipients, animationUrl, caption, cb) => {
+exports.sendAnimation = (recipients, shortFile, shortKey, caption, cb) => {
   cb = cb || function () {}
 
   if (!client) {
@@ -58,7 +59,7 @@ exports.sendAnimation = (recipients, animationUrl, caption, cb) => {
   }
 
   async.each(recipients, (recipient, cb) => {
-    client.sendAnimation(recipient, animationUrl, params).then(() => {
+    client.sendAnimation(recipient, shortFile, params, { filename: shortKey, contentType: 'image/gif' }).then(() => {
       cb()
     }).catch((err) => {
       cb(err)
@@ -80,7 +81,7 @@ exports.sendVideo = (recipients, videoUrl, caption, cb) => {
   }
 
   async.each(recipients, (recipient, cb) => {
-    client.sendVideo(recipient, videoUrl, params).then(() => {
+    client.sendVideo(recipient, videoUrl, params, { contentType: 'video/mp4' }).then(() => {
       cb()
     }).catch((err) => {
       cb(err)
