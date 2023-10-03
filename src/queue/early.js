@@ -14,13 +14,14 @@ const Queue = require('better-queue')
 
 const settings = {
   duration: 5,
+  fps: 5,
   iconFile: path.join(__dirname, '../assets/favicon.ico'),
   fontFile: process.env.NODE_ENV === 'production' ? path.join(__dirname, '../assets/FreeSans.ttf') : 'src/assets/FreeSans.ttf',
   fontColor: 'white',
   borderColor: 'black',
   signedExpirySeconds: 7 * 24 * 60 * 60,
   concurrent: 1,
-  maxRetries: Infinity,
+  maxRetries: 1,
   retryDelay: 10000,
   ramDir: process.env.NODE_ENV === 'production' ? '/mnt/ram' : path.join(__dirname, '../../mnt/ram')
 }
@@ -49,13 +50,12 @@ exports.start = (cb) => {
 
         const width = input.hwVersion === 4 ? 741 : 640
 
-        let command = `ffmpeg -y -hide_banner -loglevel error -i ${settings.iconFile} -ss ${start} -t ${duration} -i ${input.file} -filter_complex "[0]scale=15:15 [icon]; [1]fps=5,scale=${width}:480:flags=lanczos,split[s0][s1];[s0]palettegen[p];[s1][p]paletteuse,drawtext=fontfile='${settings.fontFile}':fontcolor=${settings.fontColor}:fontsize=12:borderw=1:bordercolor=${settings.borderColor}@1.0:x=22:y=465:text='TeslaBox ${input.carName.replace(/'/g, '\\')} ${_.upperFirst(input.event.type)}${input.event.type === 'sentry' ? ` (${_.upperFirst(input.event.angle)})` : ''} %{pts\\:localtime\\:${timestamp}}' [image]; [image][icon]overlay=5:462" -loop 0 ${input.outFile}`
+        let command = `ffmpeg -y -hide_banner -loglevel error -i ${settings.iconFile} -ss ${start} -t ${duration} -i ${input.file} -filter_complex "[0]scale=15:15 [icon]; [1]fps=${settings.fps},scale=${width}:480:flags=lanczos,split[s0][s1];[s0]palettegen[p];[s1][p]paletteuse,drawtext=fontfile='${settings.fontFile}':fontcolor=${settings.fontColor}:fontsize=12:borderw=1:bordercolor=${settings.borderColor}@1.0:x=22:y=465:text='TeslaBox ${input.carName.replace(/'/g, '\\')} ${_.upperFirst(input.event.type)}${input.event.type === 'sentry' ? ` (${_.upperFirst(input.event.angle)})` : ''} %{pts\\:localtime\\:${timestamp}}' [image]; [image][icon]overlay=5:462" -loop 0 ${input.outFile}`
 
         log.debug(`[queue/early] ${input.id} processing: ${command}`)
         exec(command, (err) => {
           if (!err) {
             input.step++
-            fs.rm(input.file, () => {})
           }
 
           cb(err)
@@ -66,77 +66,32 @@ exports.start = (cb) => {
           return cb()
         }
 
-        if (!ping.isAlive()) {
-          const err = 'no connection to upload'
-          return cb(err)
-        }
-
-        fs.readFile(input.outFile, (err, fileContents) => {
-          if (err) {
-            return cb(err)
-          }
-
-          log.debug(`[queue/early] ${input.id} uploading: ${input.outKey}`)
-          aws.s3.putObject(input.outKey, fileContents, 'image/gif', (err) => {
-            if (!err) {
-              input.step++
-              fs.rm(input.outFile, () => {})
-            }
-
-            cb(err)
-          })
-        })
-      },
-      (cb) => {
-        if (input.step !== 3) {
-          return cb()
-        }
-
-        async.parallel([
-          (cb) => {
-            aws.s3.getSignedUrl(input.outKey, settings.signedExpirySeconds, (err, url) => {
-              if (!err) {
-                input.shortUrl = url
-              }
-
-              cb(err)
-            })
-          },
-          (cb) => {
-            aws.s3.getSignedUrl(input.videoKey, settings.signedExpirySeconds, (err, url) => {
-              if (!err) {
-                input.videoUrl = url
-              }
-
-              cb(err)
-            })
-          }
-        ], (err) => {
+        aws.s3.getSignedUrl(input.videoKey, settings.signedExpirySeconds, (err, url) => {
           if (!err) {
             input.step++
+            input.videoUrl = url
           }
 
           cb(err)
         })
       }
     ], (err) => {
-      if (!err || input.step < 2) {
-        fs.rm(input.file, () => {})
+      fs.rm(input.file, () => {})
+
+      if (err) {
+        log.error(`[queue/early] ${input.id} failed: ${err}`)
+
         fs.rm(input.outFile, () => {})
+      } else {
+        log.info(`[queue/early] ${input.id} sent after ${+new Date() - input.startedAt}ms`)
 
-        if (err) {
-          log.error(`[queue/early] ${input.id} failed: ${err}`)
-          q.cancel(input.id)
-        } else {
-          log.info(`[queue/early] ${input.id} sent after ${+new Date() - input.startedAt}ms`)
-
-          queue.notify.push({
-            id: `${input.id} (shortVideo)`,
-            event: input.event,
-            shortUrl: input.shortUrl,
-            videoUrl: input.videoUrl
-          })
-        }
+        queue.notify.push({
+          id: `${input.id} (shortVideo)`,
+          event: input.event,
+          shortFile: input.outFile,
+          shortKey: input.outKey,
+          videoUrl: input.videoUrl
+        })
       }
 
       cb(err)
@@ -152,7 +107,7 @@ exports.push = (input) => {
   _.assign(input, {
     carName,
     outFile: path.join(settings.ramDir, `${chance.hash()}.gif`),
-    outKey: `${carName}/shorts/${input.folder.split('_')[0]}/${input.folder}-${input.event.type}.gif`,
+    outKey: `${input.folder}-${input.event.type}.gif`,
     videoKey: `${carName}/archives/${input.folder.split('_')[0]}/${input.folder}-${input.event.type}.mp4`,
     startedAt: +new Date(),
     step: 1
