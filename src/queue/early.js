@@ -1,6 +1,5 @@
 const config = require('../config')
 const log = require('../log')
-const ping = require('../ping')
 const queue = require('./')
 const aws = require('../aws')
 

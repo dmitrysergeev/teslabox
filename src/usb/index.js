@@ -73,6 +73,7 @@ exports.start = (cb) => {
         const sentryIgnoreAngles = config.get('sentryIgnoreAngles')
         const isStream = config.get('stream') || config.get('streamCopy')
         const streamAngles = config.get('streamAngles')
+
         isNotify = config.get('emailRecipients').length || config.get('telegramRecipients').length
         notifications = isNotify ? config.get('notifications') : []
 

@@ -81,7 +81,7 @@ exports.sendVideo = (recipients, videoUrl, caption, cb) => {
   }
 
   async.each(recipients, (recipient, cb) => {
-    client.sendVideo(recipient, videoUrl, params, { contentType: 'video/mp4' }).then(() => {
+    client.sendVideo(recipient, videoUrl, params).then(() => {
       cb()
     }).catch((err) => {
       cb(err)

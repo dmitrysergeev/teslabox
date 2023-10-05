@@ -211,7 +211,7 @@ exports.start = (cb) => {
                 break
             }
 
-            command += ` [all]; [all]drawtext=fontfile='${settings.fontFile}':fontcolor=${settings.fontColor}:fontsize=25:borderw=1:bordercolor=${settings.borderColor}@1.0:x=38:y=${1050 + heightDelta}:text='TeslaBox ${input.carName.replace(/'/g, '\\')} ${_.upperFirst(input.event.type)}${input.event.type === 'sentry' ? ` (${_.upperFirst(input.event.angle)})` : ''} %{pts\\:localtime\\:${timestampSeconds}}' [video]; [video][icon]overlay=8:${1048 + heightDelta}" -preset ${settings.preset} -crf ${crf} ${input.files[timestamp]}`
+            command += ` [all]; [all]drawtext=fontfile='${settings.fontFile}':fontcolor=${settings.fontColor}:fontsize=25:borderw=1:bordercolor=${settings.borderColor}@1.0:x=38:y=${1050 + heightDelta}:text='TeslaBox ${input.carName.replace(/'/g, '\\')} ${_.upperFirst(input.event.type)}${input.event.type === 'sentry' ? ` (${_.upperFirst(input.event.angle)})` : ''} %{pts\\:localtime\\:${timestampSeconds}}' [video]; [video][icon]overlay=8:${1048 + heightDelta}" -preset ${settings.preset} -r 24 -crf ${crf} ${input.files[timestamp]}`
 
             log.debug(`[queue/archive] ${input.id} processing: ${command}`)
             exec(command, (err) => {

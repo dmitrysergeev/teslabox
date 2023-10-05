@@ -72,7 +72,7 @@ exports.start = (cb) => {
         } else if (input.videoUrl) {
           text += ` | [Video](${input.videoUrl})`
 
-          telegram.sendVideo(input.telegramRecipients, input.videoUrl, input.videoKey, text, (err) => {
+          telegram.sendVideo(input.telegramRecipients, input.videoUrl, text, (err) => {
             if (!err) {
               input.step++
               log.debug(`[queue/notify] ${input.id} telegramed video ${input.telegramRecipients.join(',')} after ${+new Date() - input.startedAt}ms`)
@@ -133,9 +133,12 @@ exports.start = (cb) => {
         })
       }
     ], (err) => {
-      if (err && ping.isAlive()) {
+      if (err && err !== 'no connection to notify') {
         log.warn(`[queue/notify] ${input.id} failed: ${err}`)
-        q.cancel(input.id)
+
+        if (ping.isAlive()) {
+          q.cancel(input.id)
+        }
       }
 
       cb(err)
