@@ -31,8 +31,7 @@ exports.start = (cb) => {
     async.series([
       (cb) => {
         if (!ping.isAlive()) {
-          const err = 'no connection to notify'
-          return cb(err)
+          return cb(true)
         }
 
         cb()
@@ -133,12 +132,11 @@ exports.start = (cb) => {
         })
       }
     ], (err) => {
-      if (err && err !== 'no connection to notify') {
-        log.warn(`[queue/notify] ${input.id} failed: ${err}`)
-
-        if (ping.isAlive()) {
-          q.cancel(input.id)
-        }
+      if (err === true || err?.code === 'NetworkingError' || err?.retryable) {
+        log.warn(`[queue/notify] ${input.id} stalled: no connection`)
+      } else if (err) {
+        log.error(`[queue/notify] ${input.id} failed: ${err}`)
+        q.cancel(input.id)
       }
 
       cb(err)

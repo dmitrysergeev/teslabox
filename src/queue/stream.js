@@ -107,8 +107,7 @@ exports.start = (cb) => {
         }
 
         if (!ping.isAlive()) {
-          const err = 'no connection to upload'
-          return cb(err)
+          return cb(true)
         }
 
         fs.readFile(input.file, (err, fileContents) => {
@@ -129,12 +128,14 @@ exports.start = (cb) => {
         })
       }
     ], (err) => {
-      if (!err || input.step < 3) {
+      if (err === true || err?.code === 'NetworkingError' || err?.retryable) {
+        log.warn(`[queue/stream] ${input.id} stalled: no connection`)
+      } else {
         fs.rm(input.tempFile, () => {})
         fs.rm(input.file, () => {})
 
         if (err) {
-          log.warn(`[queue/stream] ${input.id} failed: ${err}`)
+          log.error(`[queue/stream] ${input.id} failed: ${err}`)
           q.cancel(input.id)
         } else {
           log.info(`[queue/stream] ${input.id} streamed after ${+new Date() - input.startedAt}ms`)

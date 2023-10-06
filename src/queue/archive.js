@@ -295,8 +295,7 @@ exports.start = (cb) => {
         }
 
         if (!ping.isAlive()) {
-          const err = 'no connection to upload'
-          return cb(err)
+          return cb(true)
         }
 
         fs.readFile(input.outFile, (err, fileContents) => {
@@ -330,7 +329,9 @@ exports.start = (cb) => {
         })
       }
     ], (err) => {
-      if (!err || input.step < 5) {
+      if (err === true || err?.code === 'NetworkingError' || err?.retryable) {
+        log.warn(`[queue/archive] ${input.id} failed: no connection`)
+      } else {
         _.each(input.tempFiles, (file) => {
           fs.rm(file.file, () => {})
         })
@@ -352,7 +353,7 @@ exports.start = (cb) => {
         }
 
         if (err) {
-          log.warn(`[queue/archive] ${input.id} failed: ${err}`)
+          log.error(`[queue/archive] ${input.id} failed: ${err}`)
           q.cancel(input.id)
         } else {
           archives.push({
