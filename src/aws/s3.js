@@ -1,6 +1,7 @@
 const log = require('../log')
 
-const { S3Client, GetObjectCommand, PutObjectCommand } = require('@aws-sdk/client-s3')
+const { S3Client, GetObjectCommand } = require('@aws-sdk/client-s3')
+const { Upload } = require('@aws-sdk/lib-storage')
 const { getSignedUrl } = require('@aws-sdk/s3-request-presigner')
 
 const settings = {
@@ -47,7 +48,22 @@ exports.putObject = (Key, Body, ContentType = 'application/octet-stream', cb) =>
     ContentType
   }
 
-  client.send(new PutObjectCommand(params)).then((data) => cb(null, data)).catch((err) => cb(err))
+  const upload = new Upload({
+    client,
+    params,
+  })
+
+  upload.on('httpUploadProgress', (progress) => {
+    log.debug(`[aws/s3] ${Key} progress: ${((progress.loaded / progress.total) * 100).toFixed(2)}%`)
+  })
+
+  upload.done()
+  .then((data) => {
+    cb(null, data)
+  })
+  .catch((err) => {
+    cb(err)
+  })
 }
 
 exports.getSignedUrl = (Key, expiresIn, cb) => {
