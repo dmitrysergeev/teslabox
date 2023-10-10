@@ -26,7 +26,8 @@ exports.start = (cb) => {
       accessKeyId: settings.accessKeyId,
       secretAccessKey: settings.secretAccessKey
     },
-    region: settings.region
+    region: settings.region,
+    maxAttempts: 1
   })
 
   cb()
