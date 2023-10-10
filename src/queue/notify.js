@@ -132,7 +132,7 @@ exports.start = (cb) => {
         })
       }
     ], (err) => {
-      if (err === true || err?.code === 'NetworkingError' || err?.retryable) {
+      if (err === true || err?.code === 'NetworkingError' || err?.code === 'ECONNRESET' || err?.code === 'ETIMEDOUT' || err?.retryable) {
         log.warn(`[queue/notify] ${input.id} stalled: no connection`)
       } else if (err) {
         log.error(`[queue/notify] ${input.id} failed: ${err}`)
