@@ -130,7 +130,7 @@ exports.start = (cb) => {
         })
       }
     ], (err) => {
-      if (err === true || err?.code === 'NetworkingError' || err?.code === 'ECONNRESET' || err?.code === 'ETIMEDOUT' || err?.retryable) {
+      if (err === true || input.step === 3) {
         log.warn(`[queue/stream] ${input.id} stalled: no connection`)
       } else {
         fs.rm(input.tempFile, () => {})

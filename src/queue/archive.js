@@ -331,7 +331,7 @@ exports.start = (cb) => {
         })
       }
     ], (err) => {
-      if (err === true || err?.code === 'NetworkingError' || err?.code === 'ECONNRESET' || err?.code === 'ETIMEDOUT' || err?.retryable) {
+      if (err === true || input.step === 5) {
         log.warn(`[queue/archive] ${input.id} failed: no connection`)
       } else {
         _.each(input.tempFiles, (file) => {
